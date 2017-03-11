@@ -1,12 +1,10 @@
 function [grad_W,grad_b]=backProp(x,h,W,t)
 %h:activation vector for all layer and input layer #### W:weight matrix for all
-%layer  ##### t: label {0,1}^10 #####   x: one data,because I can't put it into h 
+%layer  ##### t: label {0,1}^10 #####   x:  
     if size(t,1)<size(t,2) t=t'; end %assure it is column 
-    if size(x,1)<size(x,2) x=x'; end %assure it is column 
     g=h(:,end)-t;  %derivative of cost function to output
     layerNum=size(h,2);%except input layer
     for t=1:layerNum grad_W{t}=zeros(size(W{t}));end%initial weight matrix
-    
     grad_b=zeros(size(h));%bias
    
     for k=layerNum:-1:1     

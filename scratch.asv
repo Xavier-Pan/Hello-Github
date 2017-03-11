@@ -1,0 +1,36 @@
+i=5;
+A=test_x(i,:);
+B=reshape(A,28,28);
+%C=uint8(round(B));
+figure(1);
+surface(B);
+
+i=find(test_label(i,:)>0);
+fprintf('label=%d\n',i-1);
+X=reshape(A,28,28);
+colormap default
+figure(2);
+imagesc(X);
+for i=1:-1:-5
+    fprintf('in i=%d',i);
+end
+
+delta=10-4;
+  [output,h]=fordProp(hiddLayerNum,W,b,test_x(1,:));% h include all activation layer,h(:,end)=estimate_y
+[t_grad_W,t_grad_b]=backProp(rand_X(1,:),h,W,test_labels(1,:));
+%===numarical gradient====
+num_W=W;
+for k=1:size(W,2)
+    for i=1:size(W{k},1)
+        for j=1:size(W{k},2)
+            delta_W=W;
+            delta1_W{k}(i,j)=delta_W{k}(i,j)+dleta;
+            delta2_W{k}(i,j)=delta_W{k}(i,j)-dleta;
+            num_W{k}(i,j)=(delta1_W{k}(i,j)-delta2_W{k}(i,j))/(2*delta);
+        end
+
+
+ delta_J1=log(y)'*test_labels(1,:)';
+y=fordProp(hiddlayerNum,W-delta,b,test_x(1,:));
+ delta_J2=log(y)'*test_labels(1,:)';
+ gradient=
