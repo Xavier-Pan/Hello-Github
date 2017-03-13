@@ -5,7 +5,7 @@ load SVHN
 clear all
 %=======hyperparameter ===========
 learnRate=0.2;
-totalDataNum=size(train_x);
+totalDataNum=size(train_x);%#### correct =>  size(train_x,1);
 classNum=size(train_label,2);
 hiddenUnitNum=10;
 inputUnitNum1=size(train_x,2);
