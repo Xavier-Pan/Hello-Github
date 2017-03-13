@@ -11,8 +11,12 @@ function [output,h]=fordProp(hiddLayerNum,W,b,x)%assume that ouput layer has the
     a(:,1)=b(:,1)+W{1}*x;%for layer 1
     h(:,1)= 1./(1+exp(-a(:,1)));
     for i=2:hiddLayerNum+1
-        a(:,i)=b(i)+W{i}*h(:,i-1);%W{i} mean ith layer weight matrix        
-        h(:,i)= 1./(1+exp(-a(:,i)));%store from one
+        a(:,i)=b(:,i)+W{i}*h(:,i-1);%W{i} mean ith layer weight matrix  
+        if i<hiddLayerNum+1
+            h(:,i)= 1./(1+exp(-a(:,i))); 
+        else
+            h(:,end)= softmax(a(:,end));%output activation function for softmax
+        end
     end  
     output=h(:,end);
 end

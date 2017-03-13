@@ -1,11 +1,11 @@
 %assume every hiddent layer has the same nuron number
 %
 %
-load SVHN
 clear all
+load SVHN
 %=======hyperparameter ===========
-learnRate=0.2;
-totalDataNum=size(train_x);%#### correct =>  size(train_x,1);
+learnRate=0.1;
+totalDataNum=size(train_x,1);
 classNum=size(train_label,2);
 hiddenUnitNum=10;
 inputUnitNum1=size(train_x,2);
@@ -25,9 +25,9 @@ end
 W{layerNum}=rand(outptUnitNum,hiddenUnitNum)*2-1;
 %===
 epoch=0;
-maxEpoch=10;
+maxEpoch=100;
 error_threshold=0.02;
-error_record=0;
+error_record= costf(train_x,W,b,train_label);%record error in each epoch;
 while(epoch < maxEpoch)
     epoch=epoch+1;
     %==========random data =================
@@ -49,13 +49,16 @@ while(epoch < maxEpoch)
         end
         %===  update gradient ========
         for t=1:layerNum W{t}=W{t}-learnRate*grad_W{t}; end
-        b=b-learnRate*grad_b;
+        b=b-learnRate*grad_b; 
+        error_record=[error_record costf(train_x,W,b,train_label)];%record error in each epoch
     end
     %====================================
-    error_record=[error_record costf(train_x,W,b,train_label)];%record error in each epoch
+  
+  %  if mod(epoch,10)==0
+        fprintf('Epoch:%d objective:%d \n',epoch,error_record(epoch+1));
+    %end
 end
 %=========       ===============
-error_record=error_record(2:end);
 err_rate=test(W,b,test_label,test_x);
 figure(1);
 plot(error_record);str=strcat('error rate:',num2str(err_rate));
