@@ -12,9 +12,9 @@ import matplotlib.pyplot as plt
 import os
 if not os.path.exists(os.getcwd()+"\\model"):   
     os.mkdir(os.getcwd()+"\\model")
-#from tensorflow.examples.tutorials.mnist import input_data
-# number 1 to 10 data
-#mnist = input_data.read_data_sets('MNIST_data', one_hot=True)
+
+#mnist = input_data.read_data_sets('MNIST_data', one_hot=True)#from tensorflow.examples.tutorials.mnist import input_data
+#========================= load data =======================================
 def load_data():
     MNIST_M = np.load(r'C:\Users\User\Desktop\Deep Learning\HW4\Mnist_M.npy')
     train_data, train_label = MNIST_M[0]
@@ -22,8 +22,8 @@ def load_data():
     test_data, test_label = MNIST_M[2]    
     return train_data, train_label, valid_data,valid_label, test_data,test_label
   
-
 train_data, train_label, valid_data,valid_label, test_data,test_label = load_data()
+#===========================================================================
 
 '''
 def compute_accuracy(v_xs):
@@ -144,8 +144,11 @@ saver = tf.train.Saver()#for store argument
 #=====================================================
 with tf.Session() as sess:
     sess.run(init)	
-    if os.path.exists(os.getcwd()+"\\model\\autoEncoder.ckpt"):
-        saver.restore(sess, os.getcwd()+"\\model\\autoEncoder.ckpt")
+    if os.path.exists(os.getcwd()+"\\model\\autoEncode2r.ckpt"):
+        saver.restore(sess, os.getcwd()+"\\model\\autoEncoder2.ckpt")
+    else:
+        print("can't load the argument")
+        
     print('正常')    
     for epoch in range(80):
         for i in range(total_batch):
@@ -165,7 +168,7 @@ with tf.Session() as sess:
         #if i % 100 == 0:
         print("iter:{0:4d}  Loss:{1:.3f}".format(epoch, record_loss[-1]))
     global_reconstruct_image = sess.run(reconstuct_image, feed_dict={x_image: train_data[:10], keep_prob: 0.5})
-    save_path = saver.save(sess, os.getcwd()+"\\model\\autoEncoder.ckpt")#save augument 
+    save_path = saver.save(sess, os.getcwd()+"\\model\\autoEncoder2.ckpt")#save augument 
 
 tEnd = time.clock()#record time
 t_time =  tEnd - tStart
@@ -194,12 +197,13 @@ from scipy.misc import toimage
 #X_train=np.reshape(data_sets['images_test'], (-1,32, 32,3))
 h= w = 28
 k = 0
-for i in range(k,k+9):
-    plt.subplot(3,3,(i-k)%9+1)# create a grid of 3x3 images
+for i in range(k,k+5):
+    plt.subplot(2,5,(i-k)%9+1)# create a grid of 3x3 images
     plt.imshow(toimage([global_reconstruct_image[i,:h,:w,0],global_reconstruct_image[i,:h,:w,1],global_reconstruct_image[i,:h,:w,2]]))#plt.imshow(toimage([tB[i,:h,:w,0],tB[i,:h,:w,1],tB[i,:h,:w,2]]))    
 #print(np.shape(data_sets['images_test']))
-for i in range(k,k+9):
-    plt.subplot(3,3,(i-k)%9+1)   
+
+for i in range(5):
+    plt.subplot(2,5,i+1+5)   
     plt.imshow(toimage([train_data[i,:h,:w,0],train_data[i,:h,:w,1],train_data[i,:h,:w,2]]))
 
 
