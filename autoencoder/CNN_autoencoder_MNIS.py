@@ -9,6 +9,9 @@ import tensorflow as tf
 import numpy as np
 import time
 import matplotlib.pyplot as plt
+import os
+if not os.path.exists(os.getcwd()+"\\model"):   
+    os.mkdir(os.getcwd()+"\\model")
 #from tensorflow.examples.tutorials.mnist import input_data
 # number 1 to 10 data
 #mnist = input_data.read_data_sets('MNIST_data', one_hot=True)
@@ -100,8 +103,8 @@ h_conv2_d =  tf.layers.conv2d_transpose(
     activation=tf.nn.relu
 )
 
-W_conv1 = weight_variable([5,5, 32,3]) # patch 5x5, in size 1, out size 32
-b_conv1 = bias_variable([3])
+W_conv1_d = weight_variable([5,5, 32,3]) # patch 5x5, in size 1, out size 32
+b_conv1_d = bias_variable([3])
 h_conv1_d =  tf.layers.conv2d_transpose(
     h_conv2_d,
     3,
@@ -122,37 +125,51 @@ h_conv1_d =  tf.layers.conv2d_transpose(
 
 reconstuct_image = h_conv1_d#tf.reshape(h_conv1_d,[-1, 28*28*3])
 #===============================================================================
-prediction = tf.nn.softmax(tf.matmul(h_fc1, W_fc2) + b_fc2)
-
-
+#prediction = tf.nn.softmax(tf.matmul(h_fc1, W_fc2) + b_fc2)
+tStart = time.clock()#record time
+print("test timer:", time.clock() - tStart)
 # the error between prediction and real data
-loss = tf.reduce_mean(tf.sqrt(x_image - reconstuct_image))       # loss
+loss = tf.reduce_mean(tf.square(x_image - reconstuct_image))       # loss
 train_step = tf.train.AdamOptimizer(1e-4).minimize(loss)
-
+#====================== initial ======================
+record_loss = []#np.zeros([1000])
+batch_size = 200
+train_size = np.shape(train_data)[0]
+test_size = np.shape(test_data)[0]
+global_reconstruct_image = np.zeros([10,28,28,3])#for store reconstruct image
+total_batch = int(train_size/batch_size)
 init = tf.global_variables_initializer()
+saver = tf.train.Saver()#for store argument
+
+#=====================================================
 with tf.Session() as sess:
     sess.run(init)	
-    print('正常')
-    # important step
-    # tf.initialize_all_variables() no long valid from
-    # 2017-03-02 if using tensorflow >= 0.12
-    record_loss = np.zeros([1000])
-    batch_size = 200
-    train_size = np.shape(train_data)[0]
-    test_size = np.shape(test_data)[0]
-    total_batch = int(train_size/batch_size)
-    for epoch in range(50):
-    for i in range(total_batch):
-        #========= batch data ==================
-        #batch_xs, batch_ys = mnist.train.next_batch(100)
-        #train_data, train_label, valid_data,valid_label, test_data,test_label
-        batch_xs = train_data[i*batch_size:(i+1)*batch_size]
-        #=======================================
-        sess.run(train_step, feed_dict={x_image: batch_xs, keep_prob: 0.5})
-        record_loss[i] = sess.run(loss, feed_dict={x_image: batch_xs, keep_prob: 0.5})
-        if i % 50 == 0:
-            print(record_loss[i])
-        
+    if os.path.exists(os.getcwd()+"\\model\\autoEncoder.ckpt"):
+        saver.restore(sess, os.getcwd()+"\\model\\autoEncoder.ckpt")
+    print('正常')    
+    for epoch in range(80):
+        for i in range(total_batch):
+            #========= batch data ==================
+            #batch_xs, batch_ys = mnist.train.next_batch(100)
+            #train_data, train_label, valid_data,valid_label, test_data,test_label
+            batch_xs = train_data[i*batch_size:(i+1)*batch_size,:,:,:]
+            #=======================================
+            '''   
+            bbb = sess.run(h_conv2_d, feed_dict={x_image: np.reshape(train_data[0],[1,28,28,3]), keep_prob: 0.5})
+            aaa = sess.run(reconstuct_image, feed_dict={x_image: np.reshape(train_data[0],[1,28,28,3]), keep_prob: 0.5})
+            print("h_conv2_d's shape:{}".format(np.shape(bbb)))
+            print("reconstuct_image's shape:{}".format(np.shape(aaa)))
+            '''
+            sess.run(train_step, feed_dict={x_image: batch_xs, keep_prob: 0.5})
+        record_loss.append(sess.run(loss, feed_dict={x_image: batch_xs, keep_prob: 0.5}))          
+        #if i % 100 == 0:
+        print("iter:{0:4d}  Loss:{1:.3f}".format(epoch, record_loss[-1]))
+    global_reconstruct_image = sess.run(reconstuct_image, feed_dict={x_image: train_data[:10], keep_prob: 0.5})
+    save_path = saver.save(sess, os.getcwd()+"\\model\\autoEncoder.ckpt")#save augument 
+
+tEnd = time.clock()#record time
+t_time =  tEnd - tStart
+print("total time:{0:.3f} min.".format(t_time/60))
 #===plot data =====================
 fig = plt.figure()
 '''
@@ -168,6 +185,21 @@ ax2.plot(record_loss,label='loss')
 ax2.legend()
 plt.title("learning curve")
 plt.xlabel("batch iteration")
-plt.ylabel("error rate")
+plt.ylabel("cost")
 plt.ion()
 plt.show()  
+#===================================
+#===plot image =====================
+from scipy.misc import toimage
+#X_train=np.reshape(data_sets['images_test'], (-1,32, 32,3))
+h= w = 28
+k = 0
+for i in range(k,k+9):
+    plt.subplot(3,3,(i-k)%9+1)# create a grid of 3x3 images
+    plt.imshow(toimage([global_reconstruct_image[i,:h,:w,0],global_reconstruct_image[i,:h,:w,1],global_reconstruct_image[i,:h,:w,2]]))#plt.imshow(toimage([tB[i,:h,:w,0],tB[i,:h,:w,1],tB[i,:h,:w,2]]))    
+#print(np.shape(data_sets['images_test']))
+for i in range(k,k+9):
+    plt.subplot(3,3,(i-k)%9+1)   
+    plt.imshow(toimage([train_data[i,:h,:w,0],train_data[i,:h,:w,1],train_data[i,:h,:w,2]]))
+
+
