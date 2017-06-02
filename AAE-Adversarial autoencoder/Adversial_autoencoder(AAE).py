@@ -79,17 +79,25 @@ sample = tf.placeholder(tf.float32, [None, 100])#store sample from gaussian
 def encoder(image):
     h1_layer_e = tf.nn.relu(tf.matmul(image,weights_auto['h1_e'])+biases_auto['b1_e'])
     h2_layer_e = tf.nn.relu(tf.matmul(h1_layer_e,weights_auto['h2_e'])+biases_auto['b2_e'])
-    z_layer = tf.nn.relu(tf.matmul(h2_layer_e,weights_auto['h3_e'])+biases_auto['b3_e'])
+    z_layer = tf.matmul(h2_layer_e,weights_auto['h3_e'])+biases_auto['b3_e']
     return z_layer
 encode = encoder(x_image)
 '''
+#===== test
+h1_layer_e = tf.nn.relu(tf.matmul(x_image,weights_auto['h1_e'])+biases_auto['b1_e'])
+h2_layer_e = tf.nn.relu(tf.matmul(h1_layer_e,weights_auto['h2_e'])+biases_auto['b2_e'])
+z_layer = tf.nn.relu(tf.matmul(h2_layer_e,weights_auto['h3_e'])+biases_auto['b3_e'])
+
+
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
     print(sess.run(encode, feed_dict={x_image: np.reshape(train_data[0],[1,-1])}))#, feed_dict={x_image: batch_xs, keep_prob: 0.5}
+    #print(sess.run(h2_layer_e, feed_dict={x_image: np.reshape(train_data[0],[1,-1])}))#, feed_dict={x_image: batch_xs, keep_prob: 0.5}
+#===== test
 '''
 #=============================== (decoder) ===========================
 def decoder(z):# z:encoded x
-    h1_layer_d = tf.nn.relu(tf.matmul(z,weights_auto['h1_d'])+biases_auto['b1_d'])
+    h1_layer_d = tf.matmul(z,weights_auto['h1_d'])+biases_auto['b1_d']
     h2_layer_d = tf.nn.relu(tf.matmul(h1_layer_d,weights_auto['h2_d'])+biases_auto['b2_d'])
     output_layer = tf.nn.relu(tf.matmul(h2_layer_d,weights_auto['h3_d'])+biases_auto['b3_d'])
     return output_layer
@@ -97,43 +105,51 @@ def decoder(z):# z:encoded x
 #======================== autoencoder ======================================
 def autoencoder(image):
     return decoder(encoder(image))
-
+reconstruct_image = autoencoder(x_image)
 #==================== discriminator ===========================================
 def discriminator(x):
     h1_layer = tf.nn.relu(tf.matmul(x,weights_disc['h1'])+biases_disc['b1'])
     h2_layer = tf.nn.relu(tf.matmul(h1_layer,weights_disc['h2'])+biases_disc['b2'])
-    output_layer =  tf.nn.softmax(tf.matmul(h2_layer,weights_disc['h3'])+biases_disc['b3'])#!!!!!!!!!
+    #output_layer =  tf.nn.softmax(tf.matmul(h2_layer,weights_disc['h3'])+biases_disc['b3'])#!!!!!!!!!
+    output_layer =  tf.nn.sigmoid(tf.matmul(h2_layer,weights_disc['h3'])+biases_disc['b3'])#!!!!!!!!!
     #tf.nn.sparse_softmax_cross_entropy_with_logits(logits=output_layer, labels=y)   
     return output_layer
-#disc_fortest = encoder(x_image)[:2,:10]#discriminator(encoder(x_image))    
-#disc_fortest = discriminator(encoder(x_image))    
+'''
+#===== test discriminator output
+enc = encoder(x_image)[:2,:10]#discriminator(encoder(x_image))    
+disc_fortest = discriminator(encoder(x_image))    
+
+#h1_layer_e = tf.nn.relu(tf.matmul(x_image,weights_auto['h1_e'])+biases_auto['b1_e'])
+#h2_layer_e = tf.nn.relu(tf.matmul(h1_layer_e,weights_auto['h2_e'])+biases_auto['b2_e'])
+#z_layer = tf.nn.relu(tf.matmul(h2_layer_e,weights_auto['h3_e'])+biases_auto['b3_e'])
+with tf.Session() as sess:
+    sess.run(tf.global_variables_initializer())
+    print(sess.run(disc_fortest, feed_dict={x_image:train_data[:5]}))#, feed_dict={x_image: batch_xs, keep_prob: 0.5}
+    #print(sess.run(h2_layer_e, feed_dict={x_image: np.reshape(train_data[0],[1,-1])}))#, feed_dict={x_image: batch_xs, keep_prob: 0.5}
+#===== test
+'''
 #==================== (loss) ==================================================
 loss_autoencoder = tf.reduce_mean(tf.square(x_image - autoencoder(x_image)))
-g_loss = tf.reduce_mean(tf.log(1-discriminator(encoder(x_image))))#for generator
-d_loss1 = -tf.reduce_mean(tf.log(discriminator(sample)))
+g_loss = tf.reduce_mean(tf.log((1e-6)+1-discriminator(encoder(x_image))))#for generator
+d_loss1 = -tf.reduce_mean(tf.log((1e-6) + discriminator(sample)))
 d_loss2 = -g_loss
 d_loss = d_loss1 + d_loss2
 #==================== (training) ==============================================
 train_list_disc = [weights_disc['h1'],weights_disc['h2'],weights_disc['h3'],biases_disc['b1'],biases_disc['b2'],biases_disc['b3']]
-train_list_auto = [weights_auto['h1_e'],weights_auto['h2_e'],weights_auto['h3_e'],
-                   weights_auto['h1_d'],weights_auto['h2_d'],weights_auto['h3_d'],
-                   biases_auto['b1_e'],biases_auto['b2_e'],biases_auto['b3_e'],
-                   biases_auto['b1_d'],biases_auto['b2_d'],biases_auto['b3_d']]
+train_list_auto = [weights_auto['h1_e'],weights_auto['h2_e'],weights_auto['h3_e'],             
+                   biases_auto['b1_e'],biases_auto['b2_e'],biases_auto['b3_e']]                 
 
 train_autoencoder = tf.train.AdamOptimizer(1e-4).minimize(loss_autoencoder)
 train_encoder = tf.train.AdamOptimizer(1e-4).minimize(g_loss,var_list = train_list_auto)
 #train_discriminator_part1 = tf.train.AdamOptimizer(1e-4).minimize(d_loss1)
-train_discriminator = tf.train.AdamOptimizer(1e-4).minimize(d_loss ,var_list = train_list_disc)
+train_discriminator = tf.train.AdamOptimizer(1e-6).minimize(d_loss ,var_list = train_list_disc)
 
 #==============================================================================
 
 '''
 #test shape
 with tf.Session() as sess:    
-    sess.run(tf.global_variables_initializer())
-    bbb = sess.run(h_conv2, feed_dict={x_image: np.reshape(train_data[0],[1,28,28,3]), keep_prob: 0.5})
-    aaa = sess.run(h_conv2_d, feed_dict={x_image: np.reshape(train_data[0],[1,28,28,3]), keep_prob: 0.5})
-    print("h_conv2_d's shape:{}".format(np.shape(bbb)))
+    sess.run(tf.global_variables_initializer())    
     print("reconstuct_image's shape:{}".format(np.shape(aaa)))
 '''
 #===============================================================================
@@ -162,9 +178,11 @@ with tf.Session() as sess:
         saver.restore(sess, os.getcwd()+"\\model\\AAE.ckpt")
     else:
         print("can't load the argument")
-    
+    record_loss_auto.append(sess.run(loss_autoencoder, feed_dict={x_image: train_data[:batch_size],sample:sample_data, keep_prob: 0.5}))          
+    record_loss_gen.append(sess.run(g_loss, feed_dict={x_image: train_data[:batch_size],sample:sample_data, keep_prob: 0.5}))          
+    record_loss_disc.append(sess.run(d_loss, feed_dict={x_image: train_data[:batch_size],sample:sample_data, keep_prob: 0.5}))    
     #============= (training) ==========================  
-    for epoch in range(20):
+    for epoch in range(50):
         for i in range(total_batch):
             #========= get batch data ==================
             #batch_xs, batch_ys = mnist.train.next_batch(100)
@@ -176,15 +194,17 @@ with tf.Session() as sess:
             aaa = sess.run(reconstuct_image, feed_dict={x_image: np.reshape(train_data[0],[1,28,28,3]), keep_prob: 0.5})
             print("h_conv2_d's shape:{}".format(np.shape(bbb)))
             print("reconstuct_image's shape:{}".format(np.shape(aaa)))
-            '''             
+            ''' 
+    
             sess.run(train_autoencoder, feed_dict={x_image: batch_xs, keep_prob: 0.5})            
             z_code = sess.run(encode, feed_dict={x_image: batch_xs, keep_prob: 0.5})
             sample_data = np.random.multivariate_normal(mean = np.zeros([100]), cov = np.identity(100),size = batch_size)
             sess.run(train_discriminator, feed_dict={x_image: batch_xs,sample:sample_data, keep_prob: 0.5})    
             sess.run(train_encoder, feed_dict={x_image: batch_xs, keep_prob: 0.5})    
+            
         #================ (evaluate loss) =====================================          
         record_loss_auto.append(sess.run(loss_autoencoder, feed_dict={x_image: train_data[:batch_size],sample:sample_data, keep_prob: 0.5}))          
-        record_loss_gen.append(sess.run(g_loss, feed_dict={x_image: train_data[:batch_size],sample:sample_data, keep_prob: 0.5}))          
+        record_loss_gen.append(sess.run(-g_loss, feed_dict={x_image: train_data[:batch_size],sample:sample_data, keep_prob: 0.5}))          
         record_loss_disc.append(sess.run(d_loss, feed_dict={x_image: train_data[:batch_size],sample:sample_data, keep_prob: 0.5}))          
         #if i % 100 == 0:        
     #    print("disc===:",sess.run(disc_fortest, feed_dict={x_image: train_data,sample:sample_data, keep_prob: 0.5})[0])
@@ -193,7 +213,7 @@ with tf.Session() as sess:
                 record_loss_gen[-1],
                 record_loss_disc[-1]))
     #================================================================  
-    z_code_all = sess.run(encode, feed_dict={x_image: batch_xs,sample:np.zeros([1,100]), keep_prob: 0.5})#get all image's z code
+    z_code_all = sess.run(encode, feed_dict={x_image: train_data,sample:np.zeros([1,100]), keep_prob: 0.5})#get all image's z code
     '''
     from scipy.misc import toimage
     test = sess.run(reconstuct_image, feed_dict={x_image: train_data[:10]/255, keep_prob: 0.5})         
@@ -204,7 +224,7 @@ with tf.Session() as sess:
         plt.subplot(2,5,(i-k)%9+1)# create a grid of 3x3 images
         plt.imshow(toimage([test[i,:h,:w,0],test[i,:h,:w,1],test[i,:h,:w,2]]))#plt.imshow(toimage([tB[i,:h,:w,0],tB[i,:h,:w,1],tB[i,:h,:w,2]]))    
         '''  
-  #  global_reconstruct_image = sess.run(reconstuct_image, feed_dict={x_image: train_data[:10], keep_prob: 0.5})
+    global_reconstruct_image = sess.run(decoder, feed_dict={x_image: train_data[:10], keep_prob: 0.5})
     save_path = saver.save(sess, os.getcwd()+"\\model\\AAE.ckpt")#save augument 
 
 tEnd = time.clock()#record time
@@ -212,16 +232,15 @@ t_time =  tEnd - tStart
 print("total time:{0:.3f} min.".format(t_time/60))
 #===plot data =====================
 fig = plt.figure()
-'''
+
 ax = fig.add_subplot(1,1,1)
-ax.plot(record_loss,label='test error')
+ax.plot(record_loss_auto,label='loss_auto')
 #ax.plot(train_err,label='train error')
 ax.legend()
 plt.xlabel("epoch")
-'''
+
 fig2 = plt.figure()
 ax2 = fig2.add_subplot(1,1,1)
-ax2.plot(record_loss_auto,label='loss')
 ax2.plot(record_loss_gen,label='loss_gen')
 ax2.plot(record_loss_disc,label='loss_disc')
 ax2.legend()
@@ -241,7 +260,7 @@ z = model.encoding(sess, data)
 
 tsne = TSNE(n_components = 2, random_state = 0)
 t_z = tsne.fit_transform(z_code_all)
-
+np.shape(z_code_all)
 
 '''
 plot the t_z, color is determined by label
@@ -263,7 +282,7 @@ h= w = 28
 k = 0
 for i in range(k,k+5):
     plt.subplot(2,5,(i-k)%9+1)# create a grid of 3x3 images
-    plt.imshow(toimage([global_reconstruct_image[i,:h,:w,0],global_reconstruct_image[i,:h,:w,1],global_reconstruct_image[i,:h,:w,2]]))#plt.imshow(toimage([tB[i,:h,:w,0],tB[i,:h,:w,1],tB[i,:h,:w,2]]))    
+    plt.imshow(toimage([global_reconstruct_image[i,:h,:w],global_reconstruct_image[i,:h,:w],global_reconstruct_image[i,:h,:w]]))#plt.imshow(toimage([tB[i,:h,:w,0],tB[i,:h,:w,1],tB[i,:h,:w,2]]))    
 #print(np.shape(data_sets['images_test']))
 
 for i in range(5):
