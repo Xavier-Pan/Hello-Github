@@ -75,10 +75,10 @@ class pix2pix(object):
         self.real_B = self.real_data[:, :, :, :self.input_c_dim]#左半部的影像
         self.real_A = self.real_data[:, :, :, self.input_c_dim:self.input_c_dim + self.output_c_dim]#右半部的影像
 
-        self.fake_B = self.generator(self.real_A)
+        self.fake_B = self.generator(self.real_A)#由右半部的影像產生左半影像
 
         self.real_AB = tf.concat([self.real_A, self.real_B], 3)
-        self.fake_AB = tf.concat([self.real_A, self.fake_B], 3)
+        self.fake_AB = tf.concat([self.real_A, self.fake_B], 3)#不是左右合併,而是channel合併
         self.D, self.D_logits = self.discriminator(self.real_AB, reuse=False)
         self.D_, self.D_logits_ = self.discriminator(self.fake_AB, reuse=True)
 
@@ -432,3 +432,45 @@ class pix2pix(object):
             )
             save_images(samples, [self.batch_size, 1],
                         './{}/test_{:04d}.png'.format(args.test_dir, idx))
+            
+ def get_score(self, args):
+        """Test pix2pix"""
+        init_op = tf.global_variables_initializer()
+        self.sess.run(init_op)
+
+        sample_files = glob('./datasets/{}/suspect/*.jpg'.format(self.dataset_name))
+
+        # sort testing input
+        n = [int(i) for i in map(lambda x: x.split('/')[-1].split('.jpg')[0], sample_files)]#提取 {./datasets/{}/val }內的檔名並轉成int
+        sample_files = [x for (y, x) in sorted(zip(n, sample_files))]#以有序的方式存檔名在list中
+
+        # load testing input
+        print("Loading suspects images ...")
+        sample = [load_data(sample_file, is_test=True) for sample_file in sample_files]#以有序的方式開檔
+
+        if (self.is_grayscale):
+            sample_images = np.array(sample).astype(np.float32)[:, :, :, None]
+        else:
+            sample_images = np.array(sample).astype(np.float32)
+
+        sample_images = [sample_images[i:i+self.batch_size]#batch_size預設=1
+                         for i in xrange(0, len(sample_images), self.batch_size)]
+        sample_images = np.array(sample_images) 
+        print("sample_images.shape:{}".format(sample_images.shape))
+
+        start_time = time.time()
+        if self.load(self.checkpoint_dir):
+            print(" [*] Load SUCCESS")
+        else:
+            print(" [!] Load failed...")
+
+        for i, sample_image in enumerate(sample_images):
+            idx = i+1
+            print("evaluate image ", idx)
+            score = self.sess.run(
+                self.D_,#透過val資料夾中的data 直接以generator(sampler)產生影像
+                feed_dict={self.real_data: sample_image}
+            )
+            print("score:".format(score))
+        #    save_images(samples, [self.batch_size, 1],
+#                        './{}/test_{:04d}.png'.format(args.test_dir, idx))
