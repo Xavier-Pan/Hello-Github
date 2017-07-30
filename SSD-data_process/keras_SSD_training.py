@@ -298,13 +298,17 @@ history = model.fit_generator(gen.generate(True), gen.train_batches,
 #===============================
 inputs = []
 images = []
-img_path = path_prefix + sorted(val_keys)[0]
-img = image.load_img(img_path, target_size=(300, 300))
-img = image.img_to_array(img)
-images.append(imread(img_path))
-inputs.append(img.copy())
-inputs = preprocess_input(np.array(inputs))
+test_data_size = val_keys
+if len(val_keys) > 10:
+    test_data_size = 10
+for index in range(test_data_size):
+    img_path = path_prefix + sorted(val_keys)[index]
+    img = image.load_img(img_path, target_size=(300, 300))
+    img = image.img_to_array(img)
+    images.append(imread(img_path))
+    inputs.append(img.copy())
 
+inputs = preprocess_input(np.array(inputs))    
 #===============================
 preds = model.predict(inputs, batch_size=1, verbose=1)
 results = bbox_util.detection_out(preds)
