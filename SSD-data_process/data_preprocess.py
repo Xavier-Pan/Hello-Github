@@ -87,6 +87,24 @@ def collect_fileName(path,id_list=[]):
             id_list = collect_fileName(path+"/"+str(f),id_list)
     return id_list
 
+#=========================================================
+#collect file name recurssively.and store in dictionary
+#=========================================================
+def collect_fileName_dict(path,id_list={}):
+    #id_list: photo's id
+    photos = [f for f in os.listdir(path) if not os.path.isdir(path+'/'+f)]  
+    #print(photos)      
+    folders = [f for f in os.listdir(path) if os.path.isdir(path+'/'+f)]        
+    #print(folders)
+    #add photo id to id_list
+    if photos:
+        for photo in photos:            
+                id_list[photo.split('=')[0]] = photo #use photo id to be key
+    if folders:
+        for f in folders:
+            id_list = collect_fileName_dict(path+"/"+str(f),id_list)
+    return id_list
+
 
 #=========================================================
 #rename if imageID not in fore 
@@ -236,9 +254,14 @@ for folder in folders:
 #=======================================================
 # step1: clear class -
 #=======================================================
-#must choose
-make_training_data = False#True
-region = '33' #choose which region you want to make training data
+#!!! must choose !!!
+make_training_data = False#True#
+region = '112' #choose which region you want to make training data
+#user_name = 'user'
+user_name = 'pan'
+path4bbox = '/home/'+user_name+'/SY/flickr_project/BBox-Label-Tool-master/Labels/'+region#path for bbox information
+path4image = '/home/'+user_name+'/SY/flickr_project/BBox-Label-Tool-master/Images/'+region#path for bbox information
+   
 #===========================
 import json 
 class BBOX( object ):
@@ -269,58 +292,66 @@ class Image( object ):
 if make_training_data:   
     print("make_training_data...\n")
     #=============================================
+    # assume photo in ' /home/pan/SY/classfy_photos/' has all indormation(not only have ID)
+    # assume photo in path4image file name didn't include title & the tile is .jpg
+    #
     # step2: read photo and store in Image class 
     #        I temperary use 2 path, one for photos,one for it's bounding box information
     #        I will merge 2 path in the future,so I don't deal with the problem of photo-number-not-equal
     #=============================================
-    path_ = '/home/user/SY/flickr_project/BBox-Label-Tool-master/Labels/'+region
-    file_list = collect_fileName(path='/home/user/SY/classfy_photos/'+region,id_list=[])
-    file_list2 = collect_fileName(path = path_,id_list=[])#has bbox information
-    
-    #a = collect_fileName(path_) # len(b)
-    #b = collect_imageID(path_,[])
-    #==========
-    #make Image[] object list,key is photo's id(assume photo has title)
-    image_id = collect_imageID(path_,[])
-#    len(image_id)
-    data = {} #len(image_id)
+    print('step2: read photo and store in Image class \n')
+    #file_list = collect_fileName(path= '/home/'+user_name+'/SY/classfy_photos/'+region,id_list=[])#for  id_,title_,label_,lat_,lon_
+    file_list = collect_fileName(path= path4image,id_list=[])#for  id_,title_,label_,lat_,lon_
+    file_list2 = collect_fileName(path = path4bbox,id_list=[])#has bbox information
+      
+    #====== make image_id ,it keep photo_id that has bbox =======
+    image_id = collect_imageID(path4bbox,[])
+    image_fileNames = collect_fileName(path4bbox,[])
+    for fileName in image_fileNames:
+        photo_id = fileName.split('=')[0]
+        num_bbox = open_list_file(path4bbox +'/'+fileName)[0]
+        if num_bbox == 0:#delete photo_id which no bbox
+            image_id.pop(image_id.index(photo_id)) # fileName.split('=')[0] mean image-id
+    #==== make Image[] object list. key is photo's id(assume photo has no title)
+    data = {} 
     for i in range(len(file_list)):
-        id_,title_,label_,lat_,lon_ = file_list[i].split('=')    
+        #id_,title_,label_,lat_,lon_ = file_list[i].split('=')    
+        id_,label_,lat_,lon_ = file_list[i].split('=')    #assume file_name didn't include photo's title
         if id_ in image_id: #if the id are also appear in folder: BBox-Label-Tool-master/Labels
-            photo = Image( Id = id_,title = title_ ,label = label_,lon = lon_, lat = lat_ )
-            data[photo.id] = photo
-    
+            photo = Image( Id = id_,title = "" ,label = label_, lat = lat_ ,lon = lon_[:-4])#because lon_has the form [xx.xxxxx.jpg]
+            data[photo.id] = photo    
     
     #=============================================
     # step3: read photo id,label xmin, ymin, xmax, ymax from BBox-Label-Tool-master/Labels/area/
     #        store it to data{}
     #=============================================
-    
+    print('step3: read photo id,label xmin, ymin, xmax, ymax from BBox-Label-Tool-master/Labels/area/store it to data{}\n')
     print("len(data.keys())={}\n".format(len(data.keys())))
     
     #bbox_id = []
     for file_name in file_list2:
         photo_id =  file_name.split('=')[0]     
         if photo_id in data.keys():   #to avoid create a new data[photo_id] which has no information of id,label,lat,lon
-            complete_name = '/home/user/SY/flickr_project/BBox-Label-Tool-master/Labels/'+ region +'/'+file_name            
+            complete_name = path4bbox +'/'+file_name                        
             lines = open_list_file(complete_name)
             num_bbox = int(lines[0])
             box_list = []
             for index in range(1,num_bbox+1):
                 label, xmin, ymin, xmax, ymax = lines[index].split(' ')#read bbox information        
                 box_list.append(BBOX(photo_id,label ,xmin,ymin,xmax,ymax))
-            data[photo_id].bbox_list = box_list
+            if box_list:
+                data[photo_id].bbox_list = box_list
             #add bbox information to image !!!you ccan't just use append(). it will cause share bbox_list    
     
     #=============================================
     # !!!(write)step4:  make .txt to store photo information
     #
     #=============================================
-    
+    print('step4!!!(write):  make .txt to store photo information(didn\'t include title)\n')
     file_name = region + '_dataset.txt'
     #store_path = '/home/user/SY/classfy_photos/'
     #os.chdir(path)# change current path
-    path ='/home/user/SY'
+    path ='/home/'+user_name+'/SY'    
     if not file_name[-3:] == 'txt':
         print('remenber to add .txt in tail')
     with open(path + '/' + file_name, 'w', encoding = 'UTF-8')  as f:     # 也可使用指定路徑等方式，如： C:\A.txt
@@ -328,16 +359,16 @@ if make_training_data:
         f.write("{}\n".format(str(len(data))))
         for key_ in data:
             photo = data[key_]
-            f.write("{}\n".format(len(photo.bbox_list)))
+            f.write("{}\n".format(len(photo.bbox_list)))# num_bbox for one image
             for box_ in photo.bbox_list:
-                f.write("{}={}={}={}={}={}={}={}={}\n".format(photo.id,photo.title,box_.label,\
+                f.write("{}={}={}={}={}={}={}={}={}\n".format(photo.id,'title',box_.label,\
                         photo.lat,photo.lon,box_.xmin,box_.ymin,box_.xmax,box_.ymax)     )
     
     #=========================================================
     # step5 change file name (only keep id) because the SSD code assume file names are equal to it's name in dictionary
     #=========================================================
-    
-    path='/home/user/SY/classfy_photos/'+ region
+    print('step5: change file name (only keep id) because the SSD code assume file names are equal to it\'s name in dictionary\n')
+    path=path4image  
     #id_list: photo's id
     photos_name = [f for f in os.listdir(path) if not os.path.isdir(path+'/'+f)]  
     #print(photos)      
@@ -351,9 +382,11 @@ if make_training_data:
 # step6: make training data 
 # 
 #=============================================
+print('step6: make training data \n')
 #============== read file ===============  
 import scipy
-path ='/home/user/SY/classfy_photos/'+region
+#path ='/home/'+user_name+'/SY/classfy_photos/'+region
+path = path4image
 #photos = [f for f in os.listdir(path ) if not os.path.isdir(path+'/'+f)]   
 photos = {}
 for f_name in os.listdir(path ):
@@ -362,7 +395,7 @@ for f_name in os.listdir(path ):
 
 #====== count number of class =========
 class_set = {''}
-lines = open_list_file('/home/user/SY/'+region + '_dataset.txt')
+lines = open_list_file('/home/'+user_name+'/SY/'+region + '_dataset.txt')
 i = 2
 while i < len(lines):
     box_num = int(lines[i])
@@ -372,11 +405,19 @@ while i < len(lines):
     i += box_num+1
         
 num_class = len(class_set)-1 #minus {''}
-
-#============== make training data ===============  
-label2prob = {'cksHell':[1.,0.,0.,0.],'concertHell':[0.,1.,0.,0.],'theaterHell':[0.,0.,1.,0.],'taipei101':[0.,0.,0.,1.]}
+class_set.remove('')
+#============== make training data ===============  !!!note:class_set has no order and label2prob's order is by dictionary
+# make one hot bector
+label2prob = {}
+prob = np.eye(num_class)
+for i,class_name in enumerate(class_set):
+    label2prob[class_name]=list(prob[i])
+    #'cksHell':[1.,0.,0.,0.],'concertHell':[0.,1.,0.,0.],'theaterHell':[0.,0.,1.,0.],'taipei101':[0.,0.,0.,1.]}
+    print('\n')
+    print(label2prob)
+    print('\n\n')
 train_data = {}
-file_name = '/home/user/SY/'+ region +'_dataset.txt'
+file_name = '/home/'+user_name+'/SY/'+ region +'_dataset.txt'
 if not file_name[-3:] == 'txt':
     print('remenber to add .txt in tail')
 with open(file_name, 'r', encoding = 'UTF-8')  as f:     # 也可使用指定路徑等方式，如： C:\A.txt
@@ -384,16 +425,17 @@ with open(file_name, 'r', encoding = 'UTF-8')  as f:     # 也可使用指定路
     size = int(f.readline())
     for i in range(size):
         num_box = int(f.readline())
-        boxes = np.zeros([num_box,4+num_class])
-        for j in range(num_box):
-            
-            [id_, title, label, lat, lon, xmin, ymin, xmax, ymax] = f.readline().split('=')        
-            #img = np.shape(scipy.misc.imread(path+'/'+photos[0].split('=')[0]))
-            height,weight,channel = np.shape(scipy.misc.imread(path+'/'+id_))#get image shape
-            
-            boxes[j] = np.array([float(xmin)/weight,float(ymin)/height,float(xmax)/weight,float(ymax)/height]+label2prob[label])
-                             #[xmin,ymin,xmax,ymax,prob(y1),prob(y2),prob(y3)]
-        train_data[id_] = boxes
+        if num_box:
+            boxes = np.zeros([num_box,4+num_class])
+            for j in range(num_box):
+                
+                [id_, title, label, lat, lon, xmin, ymin, xmax, ymax] = f.readline().split('=')        
+                #img = np.shape(scipy.misc.imread(path+'/'+photos[0].split('=')[0]))
+                height,weight,channel = np.shape(scipy.misc.imread(path+'/'+id_))#get image shape
+                
+                boxes[j] = np.array([float(xmin)/weight,float(ymin)/height,float(xmax)/weight,float(ymax)/height]+label2prob[label])
+                                 #[xmin,ymin,xmax,ymax,prob(y1),prob(y2),prob(y3)]
+            train_data[id_] = boxes
                   
 #!!! note !!!
 #if you use np.shape(np.array([i for i in range(8)])) ,then you get (8,)
@@ -402,39 +444,67 @@ with open(file_name, 'r', encoding = 'UTF-8')  as f:     # 也可使用指定路
 #change file name (add .jpg) when use BBOX-label application
 #=========================================================
 '''
-path='/home/user/SY/flickr_project/BBox-Label-Tool-master/Images/33'
-new_path = '/home/user/SY/flickr_project/BBox-Label-Tool-master/Images'
-flie_name ='/home/user/Desktop/label33'
-need_delete_list_ = open_list_file(flie_name)
-for i in range(len(need_delete_list_)):
-    need_delete_list_[i] = need_delete_list_[i].split(' ')[-1]
-
-
+path='/home/'+user_name+'/SY/flickr_project/BBox-Label-Tool-master/Images/' + region
+new_path = '/home/'+user_name+'/SY/flickr_project/BBox-Label-Tool-master/Images'
 photos_name = [f for f in os.listdir(path) if not os.path.isdir(path+'/'+f)]
-for s in photos_name:
-    if s.split('=')[0] in need_delete_list_:
-        shutil.move(path+'/'+s,new_path)#remove
-        #os.unlink(path + '/' + s)# delete
 
-#print(photos)      
-#add photo id to id_list
-if photos_name:
-    for name in photos_name:        
-        new_name = path + '/' + name + '.jpg'
-        os.rename(path + '/'+ name,new_name) 
+#=== to remove the photo which didn't appear in label
+#flie_name ='/home/'+user_name+'/Desktop/label33'
+#need_delete_list_ = open_list_file(flie_name)
+#for i in range(len(need_delete_list_)):
+#    need_delete_list_[i] = need_delete_list_[i].split(' ')[-1]
+
+
+#for s in photos_name:
+#    if s.split('=')[0] in need_delete_list_:
+#        shutil.move(path+'/'+s,new_path)#remove
+        #os.unlink(path + '/' + s)# delete
 '''
+#===== change name to add .jpg ====
+
+def fileNameAddJpg(photos_name,path):
+    if photos_name:
+        for name in photos_name:        
+            new_name = path + '/' + name + '.jpg'
+            os.rename(path + '/'+ name,new_name) 
+
+#fileNameAddJpg(photos_name,path)
+
+'''
+#===== take off .jpg ====
+#path='/home/'+user_name+'/SY/flickr_project/BBox-Label-Tool-master/Images/'+region
+#photos_name = [f for f in os.listdir(path) if not os.path.isdir(path+'/'+f)]
+#if photos_name:
+#    for name in photos_name:        
+#        new_name = path + '/' + name.split('.')[0]
+#        os.rename(path + '/'+ name,new_name) 
+'''
+
 #=========================================================
 # make .txt to store all photo for search  (dataset.txt location:= '/home/user/python_download_image/0000GPS_photo0000')
 #=========================================================
 '''
-path = '/home/user/python_download_image/0000GPS_photo0000/all label'
+path4photo = '/home/'+user_name+'/python_download_image/0000GPS_photo0000/all label'
 #collect all file name include in path( recursive)
-id_list = collect_fileName(path, [])
-save_list_file(id_list,flie_name = 'all_photo_file_name(noTitle).txt',path = '/home/user/python_download_image/0000GPS_photo0000')
-  
+id_list = collect_fileName_dict(path4photo, {})
+len(id_list)
+#len(all_data_list)
+new_dataset = []
+path4txt = '/home/'+user_name+'/python_download_image/0000GPS_photo0000'
+all_data_list = open_list_file(flie_name = path4txt+'/all_photo_file_name.txt')
+for data_ in all_data_list:
+    [id_,title_,lat_,lon_ ]= data_.split('=')
+    if id_ in id_list.keys():
+        label_ = id_list[id_].split('=')[1]
+        new_dataset.append(id_+'='+ title_ +'='+ label_ +'='+ lat_ +'='+ lon_)
+    else:
+        print("id miss:{}\n".format(id_))
+    
+save_list_file(new_dataset,flie_name = 'all_photo_dataset.txt',path = path4txt)
+'''
 #=============================
 #delete title from file name
-path = '/home/user/python_download_image/0000GPS_photo0000/all label'
+'''
 def changeName(path):
     photos = [f for f in os.listdir(path) if not os.path.isdir(path+'/'+f)]      
     #print(photos)      
@@ -452,4 +522,15 @@ def changeName(path):
             changeName(path+'/'+f)
 
 changeName(path)
+'''
+#====== count how many image has no bbox in training data =====
+'''
+path = '/home/pan/SY/112_dataset.txt'
+test_list = open_list_file(path)
+count_zero_bbox = 0;
+for bbox_t in test_list:
+    if bbox_t[0] =='0':
+        count_zero_bbox+=1
+        print(bbox_t)
+print("totally has {} 's zero".format(count_zero_bbox))
 '''
