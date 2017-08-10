@@ -250,15 +250,16 @@ class Generator(object):
                     yield preprocess_input(tmp_inp), tmp_targets
                                           
 #===============================                                          
-path_prefix = '../SY/classfy_photos/'+data_preprocess.region+'/'
-gen = Generator(gt, bbox_util, 16, '../SY/classfy_photos/'+data_preprocess.region+'/',
+#path_prefix = '../SY/classfy_photos/'+data_preprocess.region+'/'
+path_prefix = data_preprocess.path4image +'/'
+gen = Generator(gt, bbox_util, 16, path_prefix,
                 train_keys, val_keys,
                 (input_shape[0], input_shape[1]), do_crop=False)
 
 #===============================
 model = SSD300(input_shape, num_classes=NUM_CLASSES)
-model.load_weights('weights_SSD300.hdf5', by_name=True)
-
+#model.load_weights('weights_SSD300.hdf5', by_name=True)
+model.load_weights('/home/pan/ssd_keras-master/checkpoints/111(landmark)/weights.29-2.03.hdf5')
 #===============================
 freeze = ['input_1', 'conv1_1', 'conv1_2', 'pool1',
           'conv2_1', 'conv2_2', 'pool2',
