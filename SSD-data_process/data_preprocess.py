@@ -256,15 +256,18 @@ for folder in folders:
 #=======================================================
 #!!! must choose !!!
 make_training_data = False#True#
-region = '112' #choose which region you want to make training data
+region = '111' #choose which region you want to make training data
+region = 'voc+112' #!!!
 #user_name = 'user'
 user_name = 'pan'
-path4bbox = '/home/'+user_name+'/SY/flickr_project/BBox-Label-Tool-master/Labels/'+region#path for bbox information
-path4image = '/home/'+user_name+'/SY/flickr_project/BBox-Label-Tool-master/Images/'+region#path for bbox information
-   
+#path4bbox = '/home/'+user_name+'/SY/flickr_project/BBox-Label-Tool-master/Labels/'+region#path for bbox information
+#path4image = '/home/'+user_name+'/SY/flickr_project/BBox-Label-Tool-master/Images/'+region#path for bbox information
+path4image = '/home/'+user_name+'/python_download_image/VOCdevkit/VOC2012/voc+112'  
+path4bbox = '/home/'+user_name+'/python_download_image/VOCdevkit/VOC2012/Annotations'
+#path4image = '/home/user/SY/classfy_photos/'+region
+#path4bbox = '/home/'+user_name+'/SY/'+region+'.txt'
 #===========================
-import json 
-class BBOX( object ):
+class BBOX:
     def  __init__(self,Id ='',label='',xmin ='-1',ymin ='-1',xmax ='-1',ymax ='-1'):      
         self.id =  Id
         self.label = label        
@@ -275,9 +278,8 @@ class BBOX( object ):
         
     def  __repr__( self ):
         return  'Image Object, photo id : %s , label : %s, xmin : %f , ymin : %f, xmax : %f, ymax: %f \n'\
-                     % ( self.id, self .label,self.xmin,self.ymin,self.xmax,self.ymax)
-                     
-class Image( object ):
+                     % ( self.id, self .label,self.xmin,self.ymin,self.xmax,self.ymax)                     
+class Image:
     def  __init__(self,Id ='',title='',label='',lat = '0',lon = '0',box_ = []):
         self.id =  Id        
         self.title =  title        
@@ -409,13 +411,13 @@ class_set.remove('')
 #============== make training data ===============  !!!note:class_set has no order and label2prob's order is by dictionary
 # make one hot bector
 label2prob = {}
+prob2label = {}
 prob = np.eye(num_class)
 for i,class_name in enumerate(class_set):
     label2prob[class_name]=list(prob[i])
-    #'cksHell':[1.,0.,0.,0.],'concertHell':[0.,1.,0.,0.],'theaterHell':[0.,0.,1.,0.],'taipei101':[0.,0.,0.,1.]}
-    print('\n')
-    print(label2prob)
-    print('\n\n')
+    prob2label[np.argmax(prob[i])] = class_name    
+    
+#==================================================    
 train_data = {}
 file_name = '/home/'+user_name+'/SY/'+ region +'_dataset.txt'
 if not file_name[-3:] == 'txt':
@@ -436,7 +438,7 @@ with open(file_name, 'r', encoding = 'UTF-8')  as f:     # 也可使用指定路
                 boxes[j] = np.array([float(xmin)/weight,float(ymin)/height,float(xmax)/weight,float(ymax)/height]+label2prob[label])
                                  #[xmin,ymin,xmax,ymax,prob(y1),prob(y2),prob(y3)]
             train_data[id_] = boxes
-                  
+                  #len(train_data)
 #!!! note !!!
 #if you use np.shape(np.array([i for i in range(8)])) ,then you get (8,)
 #if you use np.shape(np.zeros( [1,8] )) , then you get (1,8)
@@ -459,7 +461,7 @@ photos_name = [f for f in os.listdir(path) if not os.path.isdir(path+'/'+f)]
 #    if s.split('=')[0] in need_delete_list_:
 #        shutil.move(path+'/'+s,new_path)#remove
         #os.unlink(path + '/' + s)# delete
-'''
+
 #===== change name to add .jpg ====
 
 def fileNameAddJpg(photos_name,path):
@@ -468,8 +470,8 @@ def fileNameAddJpg(photos_name,path):
             new_name = path + '/' + name + '.jpg'
             os.rename(path + '/'+ name,new_name) 
 
-#fileNameAddJpg(photos_name,path)
-
+fileNameAddJpg(photos_name,path)
+'''
 '''
 #===== take off .jpg ====
 #path='/home/'+user_name+'/SY/flickr_project/BBox-Label-Tool-master/Images/'+region
@@ -533,4 +535,22 @@ for bbox_t in test_list:
         count_zero_bbox+=1
         print(bbox_t)
 print("totally has {} 's zero".format(count_zero_bbox))
+'''
+#==========merge voc&112 ======================
+'''
+path4112dataset ='/home/user/python_download_image/VOCdevkit/VOC2012/112_dataset.txt'
+path4vocdataset ='/home/user/SY/voc_dataset.txt'
+list4112 = open_list_file(path4112dataset)
+list4voc = open_list_file(path4vocdataset)
+list4112[1] = str(int(list4112[1])+int(list4voc[1]))
+for i in range(2,len(list4voc)):
+    list4112.append(list4voc[i])
+save_list_file(list4112,flie_name = 'voc+112_dataset.txt',path = '/home/user/SY/')
+  #======= move file =======================
+path4dist = '/home/user/python_download_image/VOCdevkit/VOC2012/voc+112(jpg)'
+path4origin = '/home/user/python_download_image/VOCdevkit/VOC2012/voc+112(jpg)'
+fileName = [f for f in os.listdir(path4origin) if os.path.isfile(path4origin+'/'+f)]
+for s in fileName:    
+        #shutil.move(path4origin+'/'+s,path4dist+'/'+s)#remove
+          os.rename(path4origin+'/'+s,path4dist+'/'+s.split('.')[0])#remove
 '''
