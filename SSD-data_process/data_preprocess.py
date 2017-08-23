@@ -205,65 +205,66 @@ photos = [f for f in os.listdir(P) if not os.path.isdir(f)]
 #=======================================================
 #classify photo by GPS
 #=======================================================
-'''
-photos_folder = initial_path#'/home/user/0000GPS_photo0000'
-folders = [f for f in os.listdir(photos_folder)] 
-m = np.zeros([8,8])
-for folder in folders:
-    print(folder)
-    label = folder
-    photos = [f for f in os.listdir(os.path.join(photos_folder,folder)) if not os.path.isdir(photos_folder+'/'+folder+'/'+f)]        
-    #print(photos)
-    for photo in photos:
-      #  print(photo)
-        lat_,lon_ = str(photo).split('=')[-2:]
-         #lon_ = str(photo).split('=')[-1]
-        first_name ,last_name= 0,0
-        #classify director,
-        for i in range(len(lat)):
-            if float(lat_) < float(lat[i]):
-                first_name = i
-                break
-        for i in range(len(lon)):
-            if float(lon_) < float(lon[i]):
-                last_name = i
-                break        
-        new_folder = str(first_name)+str(last_name)
-        m[first_name][last_name]+=1
 
-        if not os.path.exists(str(new_folder)):
-            os.mkdir(str(new_folder))
-        folder_path = os.path.join(photos_folder,str(folder))        
-        photo_path = os.path.join(folder_path,str(photo))
-        shutil.copy(photo_path,new_folder)
-      #  print("photo_path:",photo_path)
-        pic_id,pic_title,pic_lat,pic_lon = str(photo).split('=')[:]
-        photo_name = pic_id+'='+pic_title+'='+label+'='+pic_lat+'='+pic_lon
-        new_name = new_folder+"/"+photo_name
-        os.rename(new_folder+'/'+str(photo),new_name)   
-        #dir_list = os.listdir(folder_path)
-        #print("dir_list:",dir_list)
-    for i in range(8):
-        for j in range(8):
-            if m[i][j] > 50:
-                print('[{0}][{1}]={2}'.format(i,j,m[i][j]))
+def classifyPhotoByGPS(initial_path):
+    photos_folder = initial_path#'/home/user/0000GPS_photo0000'
+    folders = [f for f in os.listdir(photos_folder)] 
     m = np.zeros([8,8])
+    for folder in folders:
+        print(folder)
+        label = folder
+        photos = [f for f in os.listdir(os.path.join(photos_folder,folder)) if not os.path.isdir(photos_folder+'/'+folder+'/'+f)]        
+        #print(photos)
+        for photo in photos:
+          #  print(photo)
+            lat_,lon_ = str(photo).split('=')[-2:]
+             #lon_ = str(photo).split('=')[-1]
+            first_name ,last_name= 0,0
+            #classify director,
+            for i in range(len(lat)):
+                if float(lat_) < float(lat[i]):
+                    first_name = i
+                    break
+            for i in range(len(lon)):
+                if float(lon_) < float(lon[i]):
+                    last_name = i
+                    break        
+            new_folder = str(first_name)+str(last_name)
+            m[first_name][last_name]+=1
+    
+            if not os.path.exists(str(new_folder)):
+                os.mkdir(str(new_folder))
+            folder_path = os.path.join(photos_folder,str(folder))        
+            photo_path = os.path.join(folder_path,str(photo))
+            shutil.copy(photo_path,new_folder)
+          #  print("photo_path:",photo_path)
+            pic_id,pic_title,pic_lat,pic_lon = str(photo).split('=')[:]
+            photo_name = pic_id+'='+pic_title+'='+label+'='+pic_lat+'='+pic_lon
+            new_name = new_folder+"/"+photo_name
+            os.rename(new_folder+'/'+str(photo),new_name)   
+            #dir_list = os.listdir(folder_path)
+            #print("dir_list:",dir_list)
+        for i in range(8):
+            for j in range(8):
+                if m[i][j] > 50:
+                    print('[{0}][{1}]={2}'.format(i,j,m[i][j]))
+        m = np.zeros([8,8])
 
     
-'''
+
 #=======================================================
 # step1: clear class -
 #=======================================================
 #!!! must choose !!!
 make_training_data = False#True#
-region = '111' #choose which region you want to make training data
-region = 'voc+112' #!!!
+#region = '111' #choose which region you want to make training data
+region = 'voc12+112' #!!!
 #user_name = 'user'
 user_name = 'pan'
 #path4bbox = '/home/'+user_name+'/SY/flickr_project/BBox-Label-Tool-master/Labels/'+region#path for bbox information
 #path4image = '/home/'+user_name+'/SY/flickr_project/BBox-Label-Tool-master/Images/'+region#path for bbox information
-path4image = '/home/'+user_name+'/python_download_image/VOCdevkit/VOC2012/voc+112'  
-path4bbox = '/home/'+user_name+'/python_download_image/VOCdevkit/VOC2012/Annotations'
+path4image = '/home/'+user_name+'/VOCdevkit/'+region
+path4bbox = '/home/'+user_name+'/VOCdevkit/Annotations'
 #path4image = '/home/user/SY/classfy_photos/'+region
 #path4bbox = '/home/'+user_name+'/SY/'+region+'.txt'
 #===========================
@@ -396,7 +397,7 @@ for f_name in os.listdir(path ):
         photos[f_name.split('=')[0]] = f_name
 
 #====== count number of class =========
-class_set = {''}
+class_set = set()
 lines = open_list_file('/home/'+user_name+'/SY/'+region + '_dataset.txt')
 i = 2
 while i < len(lines):
@@ -406,16 +407,15 @@ while i < len(lines):
             class_set.add(lines[i+j].split('=')[2])#add label
     i += box_num+1
         
-num_class = len(class_set)-1 #minus {''}
-class_set.remove('')
+num_class = len(class_set) #minus {''}
 #============== make training data ===============  !!!note:class_set has no order and label2prob's order is by dictionary
 # make one hot bector
 label2prob = {}
 prob2label = {}
 prob = np.eye(num_class)
-for i,class_name in enumerate(class_set):
+for i,class_name in enumerate(sorted(class_set)):
     label2prob[class_name]=list(prob[i])
-    prob2label[np.argmax(prob[i])] = class_name    
+    prob2label[i] = class_name    
     
 #==================================================    
 train_data = {}
@@ -538,17 +538,18 @@ print("totally has {} 's zero".format(count_zero_bbox))
 '''
 #==========merge voc&112 ======================
 '''
-path4112dataset ='/home/user/python_download_image/VOCdevkit/VOC2012/112_dataset.txt'
-path4vocdataset ='/home/user/SY/voc_dataset.txt'
+user_name = 'pan'
+path4112dataset ='/home/'+user_name+'/SY/112_dataset.txt'
+path4vocdataset ='/home/'+user_name+'/SY/voc12_dataset.txt'
 list4112 = open_list_file(path4112dataset)
 list4voc = open_list_file(path4vocdataset)
 list4112[1] = str(int(list4112[1])+int(list4voc[1]))
 for i in range(2,len(list4voc)):
     list4112.append(list4voc[i])
-save_list_file(list4112,flie_name = 'voc+112_dataset.txt',path = '/home/user/SY/')
+save_list_file(list4112,flie_name = 'voc+112_dataset.txt',path = '/home/'+user_name+'/SY/')
   #======= move file =======================
-path4dist = '/home/user/python_download_image/VOCdevkit/VOC2012/voc+112(jpg)'
-path4origin = '/home/user/python_download_image/VOCdevkit/VOC2012/voc+112(jpg)'
+path4dist = '/home/'+user_name+'/VOCdevkit/voc12'
+path4origin = '/home/'+user_name+'/SY/flickr_project/BBox-Label-Tool-master/Images/112'
 fileName = [f for f in os.listdir(path4origin) if os.path.isfile(path4origin+'/'+f)]
 for s in fileName:    
         #shutil.move(path4origin+'/'+s,path4dist+'/'+s)#remove

@@ -11,13 +11,6 @@ import numpy as np
 import shutil
 #import manipulate_file
 
-max_lat = 26.
-max_lon = 122.
-lat = [0,25.024439,25.034215,25.042341,25.052082,25.061537,25.070958,max_lat]
-lon = [0,121.495034,121.510641,121.527292,121.543331,121.559898,121.575844,max_lon]
-lat = np.asarray(lat)
-lon = np.asarray(lon)
-homePath = os.getcwd()
 #=========================================================
 #open .txt and read each line, then store in list
 #=========================================================
@@ -34,18 +27,28 @@ def read_dataset(path,file_name):
     dataset_format = data[0][:-1]
     num_img = data[1][:-1]
     i = 2
-    while(i<len(data)):        
+    while(i<len(data)):   
+        bbox_list =[]
         for j in range(1,int(data[i])+1):            
             info = data[i+j].split('=')            
             info[-1] = info[-1][:-1] #ignore '\n'
-            dataset[info[0]] = info
+            bbox_list.append(info)
+        if bbox_list:
+            dataset[info[0]] = bbox_list
             #dataset[-1][-1] = dataset[-1][-1][:-1] 
         #print("dataset[{}]:{}".format(i,data[i]))
         i+= int(data[i]) + 1        
     return dataset ,num_img,dataset_format
 
    #== for test above function =========
+def pan():
+    print('i am pan.')
+
 '''
+[ddd,num_umg,d_format] = read_dataset(path = '/home/pan/SY',file_name = 'voc12+112_dataset.txt')
+type(ddd['21372277323']) [1]
+type(ddd)
+len(ddd)
 user_name = 'pan' #for difference computer
 region = '111'
 [dataset,num_img,form] = read_dataset(path = '/home/'+user_name+'/SY/',file_name = region+'_dataset.txt')
@@ -88,6 +91,7 @@ def save_list_file(list_,flie_name = 'list_'+str(int(time.time()))+'.txt',path =
         for s in list_:
             f.write(s+'\n')                 
   
+
 #=========================================================
 #collect_imageID
 #=========================================================

@@ -5,6 +5,7 @@ Created on Wed Jul 19 13:18:26 2017
 
 @author: user
 """
+
 import data_preprocess #self definition file
 import cv2
 import keras
@@ -23,7 +24,7 @@ import h5py
 from ssd import SSD300
 from ssd_training import MultiboxLoss
 from ssd_utils import BBoxUtility
-
+import os
 # %matplotlib inline
 plt.rcParams['figure.figsize'] = (8, 8)
 plt.rcParams['image.interpolation'] = 'nearest'
@@ -249,17 +250,19 @@ class Generator(object):
                     targets = []
                     yield preprocess_input(tmp_inp), tmp_targets
                                           
-#===============================                                          
-#path_prefix = '../SY/classfy_photos/'+data_preprocess.region+'/'
-path_prefix = data_preprocess.path4image +'/'
+#===============================   
+
+path4train = '/home/'+data_preprocess.user_name+'/VOCdevkit/voc12+112/'
+#path4train = '/home/user/SY/classfy_photos/'+data_preprocess.region+'/'
+path_prefix = path4train#path4train + data_preprocess.region+'/'
 gen = Generator(gt, bbox_util, 16, path_prefix,
                 train_keys, val_keys,
                 (input_shape[0], input_shape[1]), do_crop=False)
 
 #===============================
 model = SSD300(input_shape, num_classes=NUM_CLASSES)
-#model.load_weights('weights_SSD300.hdf5', by_name=True)
-model.load_weights('/home/pan/ssd_keras-master/checkpoints/111(landmark)/weights.29-2.03.hdf5')
+model.load_weights('weights_SSD300.hdf5', by_name=True)
+
 #===============================
 freeze = ['input_1', 'conv1_1', 'conv1_2', 'pool1',
           'conv2_1', 'conv2_2', 'pool2',
@@ -280,10 +283,10 @@ callbacks = [keras.callbacks.ModelCheckpoint('./checkpoints/weights.{epoch:02d}-
              keras.callbacks.LearningRateScheduler(schedule)]
 
 #===============================
-base_lr = 3e-4
+base_lr = 3e-5
 optim = keras.optimizers.Adam(lr=base_lr)
 # optim = keras.optimizers.RMSprop(lr=base_lr)
-# optim = keras.optimizers.SGD(lr=base_lr, momentum=0.9, decay=decay, nesterov=True)
+# optim = keras.optimizers.SGD(lr=base_lr, momentum=0.9, decay=0.9, nesterov=True)
 model.compile(optimizer=optim,
               loss=MultiboxLoss(NUM_CLASSES, neg_pos_ratio=2.0).compute_loss)
 
@@ -297,33 +300,51 @@ history = model.fit_generator(gen.generate(True), gen.train_batches,
                               nb_worker=1)
 
 #===============================
+
+'''
+with open('val_data_name.txt','w') as f:
+    for name in val_keys:
+        f.write(name+'\n')
+'''
 inputs = []
 images = []
-test_data_size = val_keys
-if len(val_keys) > 10:
-    test_data_size = 10
+test_data_size = val_keys        
+num_show_img = 100
+if len(val_keys) > num_show_img:
+    test_data_size = num_show_img
 for index in range(test_data_size):
     img_path = path_prefix + sorted(val_keys)[index]
     img = image.load_img(img_path, target_size=(300, 300))
     img = image.img_to_array(img)
     images.append(imread(img_path))
     inputs.append(img.copy())
-
+images[0]
 inputs = preprocess_input(np.array(inputs))    
-#===============================
+
+import util4pan
+util4pan.save_list_file(val_keys,flie_name = 'validation_set.txt',path = os.getcwd())
+#======== prediction =======================
 preds = model.predict(inputs, batch_size=1, verbose=1)
 results = bbox_util.detection_out(preds)
 
-#===============================
+#============= plot bbox result ==================                
 for i, img in enumerate(images):
     # Parse the outputs.
-    det_label = results[i][:, 0]
-    det_conf = results[i][:, 1]
-    det_xmin = results[i][:, 2]
-    det_ymin = results[i][:, 3]
-    det_xmax = results[i][:, 4]
-    det_ymax = results[i][:, 5]
-
+    if results[i]!=[]:
+        det_label = results[i][:, 0]
+        det_conf = results[i][:, 1]
+        det_xmin = results[i][:, 2]
+        det_ymin = results[i][:, 3]
+        det_xmax = results[i][:, 4]
+        det_ymax = results[i][:, 5]
+    else:#avoid []
+        det_label = np.array([0.])
+        det_conf = np.array([0.])
+        det_xmin = np.array([0.])
+        det_ymin = np.array([0.])
+        det_xmax = np.array([0.])
+        det_ymax = np.array([0.])
+        
     # Get detections with confidence higher than 0.6.
     top_indices = [i for i, conf in enumerate(det_conf) if conf >= 0.6]
 
@@ -334,23 +355,24 @@ for i, img in enumerate(images):
     top_xmax = det_xmax[top_indices]
     top_ymax = det_ymax[top_indices]
 
-    colors = plt.cm.hsv(np.linspace(0, 1, 4)).tolist()
+    colors = plt.cm.hsv(np.linspace(0, 1, NUM_CLASSES)).tolist()
 
     plt.imshow(img / 255.)
     currentAxis = plt.gca()
 
-    for i in range(top_conf.shape[0]):
-        xmin = int(round(top_xmin[i] * img.shape[1]))
-        ymin = int(round(top_ymin[i] * img.shape[0]))
-        xmax = int(round(top_xmax[i] * img.shape[1]))
-        ymax = int(round(top_ymax[i] * img.shape[0]))
-        score = top_conf[i]
-        label = int(top_label_indices[i])
-#         label_name = voc_classes[label - 1]
-        display_txt = '{:0.2f}, {}'.format(score, label)
+    for j in range(top_conf.shape[0]):
+        xmin = int(round(top_xmin[j] * img.shape[1]))
+        ymin = int(round(top_ymin[j] * img.shape[0]))
+        xmax = int(round(top_xmax[j] * img.shape[1]))
+        ymax = int(round(top_ymax[j] * img.shape[0]))
+        score = top_conf[j]
+        label = int(top_label_indices[j])
+        label_name = data_preprocess.prob2label[label - 1]
+        display_txt = '{:0.2f}, {}'.format(score, label_name)
         coords = (xmin, ymin), xmax-xmin+1, ymax-ymin+1
         color = colors[label]
         currentAxis.add_patch(plt.Rectangle(*coords, fill=False, edgecolor=color, linewidth=2))
         currentAxis.text(xmin, ymin, display_txt, bbox={'facecolor':color, 'alpha':0.5})
-    
+    print("name:",sorted(val_keys)[i])
+    plt.savefig(os.getcwd() + '/validation_result/' + sorted(val_keys)[i] + '_' + str(i)+ '.jpg')
     plt.show()
