@@ -1,4 +1,4 @@
-# Hello-Github
+# Deep Learning Cource
 
 this folder inclue some Deep learning homework.
 1.MLP
